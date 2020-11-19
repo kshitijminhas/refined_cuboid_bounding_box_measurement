@@ -1,7 +1,7 @@
 from __future__ import division
 
 import sys
-sys.path.append('PyTorch-YOLOv3/') #https://github.com/eriklindernoren/PyTorch-YOLOv3
+sys.path.append('../PyTorch-YOLOv3/') #https://github.com/eriklindernoren/PyTorch-YOLOv3
 
 from models import *
 from utils.utils import *
@@ -103,10 +103,10 @@ def drawBoxes(imgs, img_detections, classes):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--image_folder", type=str, default="PyTorch-YOLOv3/data/samples", help="path to dataset")
-    parser.add_argument("--model_def", type=str, default="PyTorch-YOLOv3/config/yolov3.cfg", help="path to model definition file")
-    parser.add_argument("--weights_path", type=str, default="PyTorch-YOLOv3/weights/yolov3.weights", help="path to weights file")
-    parser.add_argument("--class_path", type=str, default="PyTorch-YOLOv3/data/coco.names", help="path to class label file")
+    parser.add_argument("--image_folder", type=str, default="../PyTorch-YOLOv3/data/samples", help="path to dataset")
+    parser.add_argument("--model_def", type=str, default="../PyTorch-YOLOv3/config/yolov3.cfg", help="path to model definition file")
+    parser.add_argument("--weights_path", type=str, default="../PyTorch-YOLOv3/weights/yolov3.weights", help="path to weights file")
+    parser.add_argument("--class_path", type=str, default="../PyTorch-YOLOv3/data/coco.names", help="path to class label file")
     parser.add_argument("--conf_thres", type=float, default=0.8, help="object confidence threshold")
     parser.add_argument("--nms_thres", type=float, default=0.4, help="iou thresshold for non-maximum suppression")
     parser.add_argument("--batch_size", type=int, default=1, help="size of the batches")
