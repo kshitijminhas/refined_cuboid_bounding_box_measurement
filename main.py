@@ -4,6 +4,7 @@ sys.path.append('../PyTorch-YOLOv3/') #https://github.com/eriklindernoren/PyTorc
 from models import *
 from utils.utils import *
 from utils.datasets import *
+from copy import deepcopy
 
 import cv2
 import argparse
@@ -48,6 +49,22 @@ def CannyThreshold(box, src_gray, args, ratio = 3, kernel_size = 3):
     dst = src_gray * (mask[:, :].astype(src.dtype))
     return dst[box[1]:box[3],box[0]:box[2]]
 
+def getCorners(mask):
+    dst=cv2.cornerHarris(cv2.dilate(mask,None),2,3,0.04)
+    # dst = cv2.dilate(dst, None)
+    # ret, dst = cv2.threshold(dst, 0.01 * dst.max(), 255, 0)
+    # dst = np.uint8(dst)
+    #
+    # # find centroids
+    # ret, labels, stats, centroids = cv2.connectedComponentsWithStats(dst)
+    #
+    # # define the criteria to stop and refine the corners
+    # criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.001)
+    # corners = cv2.cornerSubPix(mask, np.float32(centroids), (5, 5), (-1, -1), criteria)
+    # res = np.hstack((centroids, corners))
+    # res = np.int0(res)
+    return dst#res
+
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Code for Refined Bounding Boxes')
     parser.add_argument("--image_folder", type=str, default="images", help="path to dataset")
@@ -81,6 +98,7 @@ if __name__=='__main__':
 
     # extract the edge masks from the parts of the image inside the bounding boxes
     masks=[]
+    corners=[]
     for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
         src = cv2.imread(img_paths[0])
         src_gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
@@ -88,9 +106,16 @@ if __name__=='__main__':
             # import pdb; pdb.set_trace()
             print(box)
             masks.append(CannyThreshold(box, src_gray, args))
+            corners.append(getCorners(masks[-1]))
 
-    for m in masks:
-        cv2.imshow('',m)
+    for i,m in enumerate(masks):
+        temp=m
+        dil_corn = cv2.dilate(corners[i], None)
+        temp[dil_corn > 0.01 * dil_corn.max()] = 255
+        # res=corners[i]
+        # temp[res[:, 1], res[:, 0]] = 255
+        # temp[res[:, 3], res[:, 2]] = 255
+        cv2.imshow('',temp)
         cv2.waitKey()
 
 
