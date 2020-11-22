@@ -41,13 +41,32 @@ def getBoundingBoxes(dataloader, opt):
     return boxes
 
 def CannyThreshold(box, src_gray, args, ratio = 3, kernel_size = 3):
+    # unwarp the bounding box coordinates
     box = rescale_boxes(np.array([box]), args.img_size, src_gray.shape)[0]
+
+    #detect the edges
     low_threshold = 107
     img_blur = cv2.blur(src_gray, (3,3))
     detected_edges = cv2.Canny(img_blur, low_threshold, low_threshold*ratio, kernel_size)
+
+    #create the mask and crop based on the bounding box
     mask = detected_edges != 0
     dst = src_gray * (mask[:, :].astype(src.dtype))
-    return dst[box[1]:box[3],box[0]:box[2]]
+    dst=dst[box[1]:box[3],box[0]:box[2]]
+
+    #get rid of "noisy" edges that aren't a part of the main object structure
+    ret, thresh = cv2.threshold(dst, 50, 255, cv2.THRESH_BINARY)
+    contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    mask = np.zeros_like(dst)
+    contours=[c for c in contours if len(c)>100]
+    for temp in contours:
+        temp = np.array(temp)
+        temp = temp.reshape(len(temp), 2)
+        for x,y in temp:
+            mask[y,x]=1
+
+    dst=dst*mask
+    return dst
 
 def getCorners(mask):
     # blur and detect corners
