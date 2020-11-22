@@ -4,7 +4,6 @@ sys.path.append('../PyTorch-YOLOv3/') #https://github.com/eriklindernoren/PyTorc
 from models import *
 from utils.utils import *
 from utils.datasets import *
-from copy import deepcopy
 
 import cv2
 import argparse
@@ -13,6 +12,10 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
+
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
 
 
 def getBoundingBoxes(dataloader, opt):
@@ -27,7 +30,6 @@ def getBoundingBoxes(dataloader, opt):
 
         # Get detections
         with torch.no_grad():
-            # import pdb; pdb.set_trace()
             detections = model(input_imgs)
             detections = non_max_suppression(detections, opt.conf_thres, opt.nms_thres)
 
@@ -35,14 +37,12 @@ def getBoundingBoxes(dataloader, opt):
         imgs.extend(img_paths)
         img_detections.extend(detections)
         boxes.extend([[i[:4].int().tolist() for i in detections[0]]])
-        # import pdb; pdb.set_trace()
 
     return boxes
 
 def CannyThreshold(box, src_gray, args, ratio = 3, kernel_size = 3):
-    # import pdb; pdb.set_trace()
     box = rescale_boxes(np.array([box]), args.img_size, src_gray.shape)[0]
-    low_threshold = 100
+    low_threshold = 107
     img_blur = cv2.blur(src_gray, (3,3))
     detected_edges = cv2.Canny(img_blur, low_threshold, low_threshold*ratio, kernel_size)
     mask = detected_edges != 0
@@ -50,20 +50,22 @@ def CannyThreshold(box, src_gray, args, ratio = 3, kernel_size = 3):
     return dst[box[1]:box[3],box[0]:box[2]]
 
 def getCorners(mask):
-    dst=cv2.cornerHarris(cv2.dilate(mask,None),2,3,0.04)
-    # dst = cv2.dilate(dst, None)
-    # ret, dst = cv2.threshold(dst, 0.01 * dst.max(), 255, 0)
-    # dst = np.uint8(dst)
-    #
-    # # find centroids
-    # ret, labels, stats, centroids = cv2.connectedComponentsWithStats(dst)
-    #
-    # # define the criteria to stop and refine the corners
-    # criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.001)
-    # corners = cv2.cornerSubPix(mask, np.float32(centroids), (5, 5), (-1, -1), criteria)
-    # res = np.hstack((centroids, corners))
-    # res = np.int0(res)
-    return dst#res
+    # blur and detect corners
+    blur_kernel = (6, 6)
+    dst = cv2.cornerHarris(cv2.blur(mask, blur_kernel), 10, 3, 0.04)
+
+    # find centroids
+    dst = cv2.dilate(dst, None)
+    ret, dst = cv2.threshold(dst, 0.01 * dst.max(), 255, 0)
+    dst = np.uint8(dst)
+    ret, labels, stats, centroids = cv2.connectedComponentsWithStats(dst)
+
+    # define the criteria to stop and refine the corners
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.001)
+    corners = cv2.cornerSubPix(mask, np.float32(centroids), (5, 5), (-1, -1), criteria)
+    res = np.hstack((centroids, corners))
+    res = np.int0(res)
+    return res
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Code for Refined Bounding Boxes')
@@ -110,11 +112,22 @@ if __name__=='__main__':
 
     for i,m in enumerate(masks):
         temp=m
-        dil_corn = cv2.dilate(corners[i], None)
-        temp[dil_corn > 0.01 * dil_corn.max()] = 255
-        # res=corners[i]
-        # temp[res[:, 1], res[:, 0]] = 255
-        # temp[res[:, 3], res[:, 2]] = 255
+        #plot the corners
+        res=corners[i]
+        temp[res[:, 1], res[:, 0]] = 255
+        temp[res[:, 1]+1, res[:, 0]+1] = 255
+        temp[res[:, 1], res[:, 0] + 1] = 255
+        temp[res[:, 1] + 1, res[:, 0]] = 255
+        temp[res[:, 1]-1, res[:, 0]-1] = 255
+        temp[res[:, 1], res[:, 0] - 1] = 255
+        temp[res[:, 1] - 1, res[:, 0]] = 255
+        temp[res[:, 3], res[:, 2]] = 255
+        temp[res[:, 3]+1, res[:, 2]+1] = 255
+        temp[res[:, 3], res[:, 2] + 1] = 255
+        temp[res[:, 3] + 1, res[:, 2]] = 255
+        temp[res[:, 3]-1, res[:, 2]-1] = 255
+        temp[res[:, 3], res[:, 2] - 1] = 255
+        temp[res[:, 3] - 1, res[:, 2]] = 255
         cv2.imshow('',temp)
         cv2.waitKey()
 
