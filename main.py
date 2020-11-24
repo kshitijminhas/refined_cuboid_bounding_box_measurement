@@ -45,10 +45,9 @@ def CannyThreshold(box, src_gray, args, ratio = 3, kernel_size = 3):
     box = rescale_boxes(np.array([box]), args.img_size, src_gray.shape)[0]
 
     #detect the edges
-    low_threshold = 107
+    low_threshold = 20
     img_blur = cv2.blur(src_gray, (3,3))
     detected_edges = cv2.Canny(img_blur, low_threshold, low_threshold*ratio, kernel_size)
-
     #create the mask and crop based on the bounding box
     mask = detected_edges != 0
     dst = src_gray * (mask[:, :].astype(src.dtype))
@@ -58,7 +57,7 @@ def CannyThreshold(box, src_gray, args, ratio = 3, kernel_size = 3):
     ret, thresh = cv2.threshold(dst, 50, 255, cv2.THRESH_BINARY)
     contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     mask = np.zeros_like(dst)
-    contours=[c for c in contours if len(c)>100]
+    contours=[c for c in contours if len(c)>50]
     for temp in contours:
         temp = np.array(temp)
         temp = temp.reshape(len(temp), 2)
@@ -134,16 +133,16 @@ if __name__=='__main__':
         #plot the corners
         res=corners[i]
         temp[res[:, 1], res[:, 0]] = 255
-        temp[res[:, 1]+1, res[:, 0]+1] = 255
-        temp[res[:, 1], res[:, 0] + 1] = 255
-        temp[res[:, 1] + 1, res[:, 0]] = 255
+        # temp[res[:, 1]+1, res[:, 0]+1] = 255
+        # temp[res[:, 1], res[:, 0] + 1] = 255
+        # temp[res[:, 1] + 1, res[:, 0]] = 255
         temp[res[:, 1]-1, res[:, 0]-1] = 255
         temp[res[:, 1], res[:, 0] - 1] = 255
         temp[res[:, 1] - 1, res[:, 0]] = 255
         temp[res[:, 3], res[:, 2]] = 255
-        temp[res[:, 3]+1, res[:, 2]+1] = 255
-        temp[res[:, 3], res[:, 2] + 1] = 255
-        temp[res[:, 3] + 1, res[:, 2]] = 255
+        # temp[res[:, 3]+1, res[:, 2]+1] = 255
+        # temp[res[:, 3], res[:, 2] + 1] = 255
+        # temp[res[:, 3] + 1, res[:, 2]] = 255
         temp[res[:, 3]-1, res[:, 2]-1] = 255
         temp[res[:, 3], res[:, 2] - 1] = 255
         temp[res[:, 3] - 1, res[:, 2]] = 255
