@@ -11,5 +11,5 @@ Faith Johnson, Kshitij Minhas
 6. git clone https://github.com/kshitijminhas/DenseDepth
 7. cd DenseDepth
 8. git checkout mv_project
-9. Download Densedepth model to weights folder, and edit --densedepth_model arg in refined_cuboid..../main.py
+9. Download Densedepth model to ..third_party/weights folder, and edit --densedepth_model arg in refined_cuboid..../main.py
 10. Download and place Yolo weights to folder: ..third_party/PyTorch-YOLOv3/weights/
