@@ -79,7 +79,7 @@ def CannyThreshold(box, src_gray, args, ratio = 3, kernel_size = 3):
     dst=dst*mask
     return dst
 
-def getCorners(mask):
+def getCorners(mask, box):
     # blur and detect corners
     blur_kernel = (6, 6)
     dst = cv2.cornerHarris(cv2.blur(mask, blur_kernel), 10, 3, 0.04)
@@ -93,8 +93,10 @@ def getCorners(mask):
     # define the criteria to stop and refine the corners
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.001)
     corners = cv2.cornerSubPix(mask, np.float32(centroids), (5, 5), (-1, -1), criteria)
-    res = np.hstack((centroids, corners))
-    res = np.int0(res)
+    # res = np.hstack((centroids, corners))
+    res = np.int0(centroids)
+    # import pdb; pdb.set_trace()
+    res+=box[:2]
     return res
 
 if __name__=='__main__':
@@ -141,7 +143,7 @@ if __name__=='__main__':
             # import pdb; pdb.set_trace()
             print(box)
             masks.append(CannyThreshold(box, src_gray, args))
-            corners.append(getCorners(masks[-1]))
+            corners.append(getCorners(masks[-1],box))
 
     # Code to get depth predictions from densedepth
     # Custom object needed for inference and training
@@ -170,7 +172,10 @@ if __name__=='__main__':
     #TBD: integrate the following code
     # Following code takes in corner points and displays a 3d plot with their densedepth estimates
     # for point in corner_points_from_file:
-    # uv = point.split()
+    for c in corners:
+        for points in c:
+            import pdb; pdb.set_trace()
+            uv = points.split()
     # vu =copy.deepcopy(uv)
     # vu[0] = 240 - math.ceil(float(uv[1]) / 2)
     # vu[1] = math.ceil(float(uv[0]) / 2)
@@ -193,24 +198,24 @@ if __name__=='__main__':
     # ax.set_zlim([0,240])
     # plt.show()
 
-    for i,m in enumerate(masks):
-        temp=m
-        #plot the corners
-        res=corners[i]
-        temp[res[:, 1], res[:, 0]] = 255
-        # temp[res[:, 1]+1, res[:, 0]+1] = 255
-        # temp[res[:, 1], res[:, 0] + 1] = 255
-        # temp[res[:, 1] + 1, res[:, 0]] = 255
-        temp[res[:, 1]-1, res[:, 0]-1] = 255
-        temp[res[:, 1], res[:, 0] - 1] = 255
-        temp[res[:, 1] - 1, res[:, 0]] = 255
-        temp[res[:, 3], res[:, 2]] = 255
-        # temp[res[:, 3]+1, res[:, 2]+1] = 255
-        # temp[res[:, 3], res[:, 2] + 1] = 255
-        # temp[res[:, 3] + 1, res[:, 2]] = 255
-        temp[res[:, 3]-1, res[:, 2]-1] = 255
-        temp[res[:, 3], res[:, 2] - 1] = 255
-        temp[res[:, 3] - 1, res[:, 2]] = 255
-        cv2.imshow('',temp)
-        cv2.waitKey()
+    # for i,m in enumerate(masks):
+    #     temp=m
+    #     #plot the corners
+    #     res=corners[i]
+    #     temp[res[:, 1], res[:, 0]] = 255
+    #     # temp[res[:, 1]+1, res[:, 0]+1] = 255
+    #     # temp[res[:, 1], res[:, 0] + 1] = 255
+    #     # temp[res[:, 1] + 1, res[:, 0]] = 255
+    #     temp[res[:, 1]-1, res[:, 0]-1] = 255
+    #     temp[res[:, 1], res[:, 0] - 1] = 255
+    #     temp[res[:, 1] - 1, res[:, 0]] = 255
+    #     temp[res[:, 3], res[:, 2]] = 255
+    #     # temp[res[:, 3]+1, res[:, 2]+1] = 255
+    #     # temp[res[:, 3], res[:, 2] + 1] = 255
+    #     # temp[res[:, 3] + 1, res[:, 2]] = 255
+    #     temp[res[:, 3]-1, res[:, 2]-1] = 255
+    #     temp[res[:, 3], res[:, 2] - 1] = 255
+    #     temp[res[:, 3] - 1, res[:, 2]] = 255
+    #     cv2.imshow('',temp)
+    #     cv2.waitKey()
 
