@@ -100,6 +100,7 @@ def getCorners(mask):
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Code for Refined Bounding Boxes')
     parser.add_argument("--image", type=str, default="images/00170_colors.png", help="path to dataset")
+    parser.add_argument("--image_folder", type=str, default="images", help="path to dataset")
     #TBD: throw error if image does not exist
     parser.add_argument("--yolo_model_def", type=str, default="../third_party/PyTorch-YOLOv3/config/yolov3.cfg",
                         help="path to model definition file")
@@ -110,7 +111,7 @@ if __name__=='__main__':
     parser.add_argument("--yolo_n_cpu", type=int, default=0, help="number of cpu threads to use during batch generation")
     parser.add_argument("--yolo_conf_thres", type=float, default=0.8, help="object confidence threshold")
     parser.add_argument("--yolo_nms_thres", type=float, default=0.4, help="iou thresshold for non-maximum suppression")
-    parser.add_argument('--densedepth_model', default='../third_party/weights/densedepth_model_nyu.h5', type=str, help='Trained Keras model file.')
+    parser.add_argument('--densedepth_model', default='../third_party/DenseDepth/nyu.h5', type=str, help='Trained Keras model file.')
     args = parser.parse_args()
 
 
@@ -122,7 +123,7 @@ if __name__=='__main__':
 
     # make a dataloader for the image folder
     dataloader = DataLoader(
-            ImageFolder(args.image, img_size=args.img_size),
+            ImageFolder(args.image_folder, img_size=args.img_size),
             batch_size=args.yolo_batch_size,
             shuffle=False,
             num_workers=args.yolo_n_cpu,
@@ -212,5 +213,4 @@ if __name__=='__main__':
         temp[res[:, 3] - 1, res[:, 2]] = 255
         cv2.imshow('',temp)
         cv2.waitKey()
-
 
