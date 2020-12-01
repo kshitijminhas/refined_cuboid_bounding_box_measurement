@@ -55,6 +55,8 @@ def getBoundingBoxes(dataloader, opt):
 def CannyThreshold(box, src_gray, args, ratio = 3, kernel_size = 3):
     # unwarp the bounding box coordinates
     box = rescale_boxes(np.array([box]), args.img_size, src_gray.shape)[0]
+    print('Rescaled bounding box')
+    print(box)
 
     #detect the edges
     low_threshold = 20
@@ -63,11 +65,16 @@ def CannyThreshold(box, src_gray, args, ratio = 3, kernel_size = 3):
     #create the mask and crop based on the bounding box
     mask = detected_edges != 0
     dst = src_gray * (mask[:, :].astype(src.dtype))
+    # cv2.namedWindow('test')
+    cv2.imshow('canny_mask', dst)
     dst=dst[box[1]:box[3],box[0]:box[2]]
+    cv2.imshow('cropped_canny_mask', dst)
 
     #get rid of "noisy" edges that aren't a part of the main object structure
     ret, thresh = cv2.threshold(dst, 50, 255, cv2.THRESH_BINARY)
-    contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    # cv2.imshow('threshold', thresh)
+    im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    cv2.imshow('contours', im2)
     mask = np.zeros_like(dst)
     contours=[c for c in contours if len(c)>50]
     for temp in contours:
@@ -88,6 +95,7 @@ def getCorners(mask, box):
     dst = cv2.dilate(dst, None)
     ret, dst = cv2.threshold(dst, 0.01 * dst.max(), 255, 0)
     dst = np.uint8(dst)
+    cv2.imshow('corner_blobs', dst)
     ret, labels, stats, centroids = cv2.connectedComponentsWithStats(dst)
 
     # define the criteria to stop and refine the corners
@@ -132,18 +140,30 @@ if __name__=='__main__':
         )
     # get the bounding boxes from yolo
     boxes = getBoundingBoxes(dataloader, args)
+    print('Bounding box from YOLO')
+    print(boxes[0][0])
 
-    # extract the edge masks from the parts of the image inside the bounding boxes
     masks=[]
     corners=[]
-    for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
-        src = cv2.imread(img_paths[0])
-        src_gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
-        for box in boxes[batch_i]:
-            # import pdb; pdb.set_trace()
-            print(box)
-            masks.append(CannyThreshold(box, src_gray, args))
-            corners.append(getCorners(masks[-1],box))
+    src = cv2.imread(args.image)
+    cv2.imshow('orig', src)
+    src_gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
+    # cv2.imshow('orig_gray', src_gray)
+    #only taking the first yolo bounding box, TBD: how to select the best bbox?
+    masks.append(CannyThreshold(boxes[0][0], src_gray, args))
+    corners.append(getCorners(masks[-1],boxes[0][0]))
+    print('press any key on opencv window to continue')
+    cv2.waitKey(0)
+
+    # # extract the edge masks from the parts of the image inside the bounding boxes
+    # for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
+    #     src = cv2.imread(img_paths[0])
+    #     src_gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
+    #     for box in boxes[batch_i]:
+    #         # import pdb; pdb.set_trace()
+    #         print(box)
+    #         masks.append(CannyThreshold(box, src_gray, args))
+    #         corners.append(getCorners(masks[-1],box))
 
     # Code to get depth predictions from densedepth
     # Custom object needed for inference and training
@@ -160,6 +180,7 @@ if __name__=='__main__':
 
     # Compute results
     outputs = predict(model, inputs)
+    print(outputs.shape[:])
 
     # Display DenseDepth results
     viz = display_images(outputs.copy(), inputs.copy())
@@ -167,36 +188,40 @@ if __name__=='__main__':
     plt.figure(figsize=(10,5))
     plt.imshow(viz)
     # plt.savefig('test.png')
-    plt.show()
+    # plt.show()
 
-    #TBD: integrate the following code
+    print('top left corner of image')
+    point=[5,5]
+    print([point[0], point[1], outputs[0, math.ceil(point[0] / 2), math.ceil(point[1] / 2), 0] * 1000])
+
+    print('bottom left corner of image')
+    point=[470,5]
+    print([point[0], point[1], outputs[0, math.ceil(point[0] / 2), math.ceil(point[1] / 2), 0] * 1000])
+    
+    print('farthest point in image')
+    point=[150,550]
+    print([point[0], point[1], outputs[0, math.ceil(point[0] / 2), math.ceil(point[1] / 2), 0] * 1000])
+
+    corner_points_with_depth=[]
     # Following code takes in corner points and displays a 3d plot with their densedepth estimates
     # for point in corner_points_from_file:
     for c in corners:
-        for points in c:
-            import pdb; pdb.set_trace()
-            uv = points.split()
-    # vu =copy.deepcopy(uv)
-    # vu[0] = 240 - math.ceil(float(uv[1]) / 2)
-    # vu[1] = math.ceil(float(uv[0]) / 2)
-    # corner_points.append(vu)
+        print('all corners in bounding box with depth')
+        for point in c:
+            # print(point)
+            corner_points_with_depth.append([point[0], point[1], outputs[0, math.ceil(point[0] / 2), math.ceil(point[1] / 2), 0] * 1000])
+        print(corner_points_with_depth)
+  
+    plt.figure(2)
+    ax = plt.axes(projection = '3d')
+    for point in corner_points_with_depth:
+        ax.scatter3D(point[0], point[2], point[1])
 
-    # for point in corner_points:
-    # point.append(outputs[0, point[0], point[1], 0] * 1000)
-    # print(corner_points)
-
-    # fig = plt.figure()
-    # ax = plt.axes(projection = '3d')
-    # for point in corner_points:
-    #     ax.scatter3D(point[1], point[2], point[0])
-
-    # ax.set_xlabel('v')
-    # ax.set_ylabel('z')
-    # ax.set_zlabel('u')
-    # ax.set_xlim([0,320])
-    # # ax.set_ylim([0,1000])
-    # ax.set_zlim([0,240])
-    # plt.show()
+    ax.set_xlabel('u')
+    ax.set_ylabel('z')
+    ax.set_zlabel('v')
+    print('press q on both matplotlib windows to quit program')
+    plt.show()
 
     # for i,m in enumerate(masks):
     #     temp=m
