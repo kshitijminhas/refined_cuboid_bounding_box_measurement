@@ -29,6 +29,7 @@ import math
 import copy
 
 corner_points = []
+max_len_contours = 50
 
 def getBoundingBoxes(dataloader, opt):
     imgs = []  # Stores image paths
@@ -76,7 +77,7 @@ def CannyThreshold(box, src_gray, args, ratio = 3, kernel_size = 3):
     im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     cv2.imshow('contours', im2)
     mask = np.zeros_like(dst)
-    contours=[c for c in contours if len(c)>50]
+    contours=[c for c in contours if len(c)>max_len_contours]
     for temp in contours:
         temp = np.array(temp)
         temp = temp.reshape(len(temp), 2)
@@ -107,9 +108,53 @@ def getCorners(mask, box):
     res+=box[:2]
     return res
 
+def best_fit_transform(A, B):
+    '''
+    Calculates the least-squares best-fit transform that maps corresponding points A to B in m spatial dimensions
+    Input:
+      A: Nxm numpy array of corresponding points
+      B: Nxm numpy array of corresponding points
+    Returns:
+      T: (m+1)x(m+1) homogeneous transformation matrix that maps A on to B
+      R: mxm rotation matrix
+      t: mx1 translation vector
+    '''
+
+    assert A.shape == B.shape
+
+    # get number of dimensions
+    m = A.shape[1]
+
+    # translate points to their centroids
+    centroid_A = np.mean(A, axis=0)
+    centroid_B = np.mean(B, axis=0)
+    AA = A - centroid_A
+    BB = B - centroid_B
+
+    # rotation matrix
+    H = np.dot(AA.T, BB)
+    U, S, Vt = np.linalg.svd(H)
+    R = np.dot(Vt.T, U.T)
+
+    # special reflection case
+    if np.linalg.det(R) < 0:
+       Vt[m-1,:] *= -1
+       R = np.dot(Vt.T, U.T)
+
+    # translation
+    t = centroid_B.T - np.dot(R,centroid_A.T)
+
+    # homogeneous transformation
+    T = np.identity(m+1)
+    T[:m, :m] = R
+    T[:m, m] = t
+
+    return T, R, t
+
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Code for Refined Bounding Boxes')
     parser.add_argument("--image", type=str, default="images/00170_colors.png", help="path to dataset")
+    parser.add_argument("--image_right", type=str, default="00171_colors.png", help="path to dataset")
     parser.add_argument("--image_folder", type=str, default="images", help="path to dataset")
     #TBD: throw error if image does not exist
     parser.add_argument("--yolo_model_def", type=str, default="../third_party/PyTorch-YOLOv3/config/yolov3.cfg",
@@ -178,40 +223,36 @@ if __name__=='__main__':
     inputs = load_images( glob.glob(args.image) )
     print('\nLoaded ({0}) images of size {1}.'.format(inputs.shape[0], inputs.shape[1:]))
 
+    inputs_right = load_images( glob.glob(args.image_right) )
+    print('\nLoaded ({0}) images of size {1}.'.format(inputs_right.shape[0], inputs_right.shape[1:]))
+
     # Compute results
     outputs = predict(model, inputs)
+    print('left output shape')
     print(outputs.shape[:])
+
+    outputs_right = predict(model, inputs_right)
+    print('right output shape')
+    print(outputs_right.shape[:])
 
     # Display DenseDepth results
     viz = display_images(outputs.copy(), inputs.copy())
-    # viz = display_images(outputs.copy())
     plt.figure(figsize=(10,5))
     plt.imshow(viz)
-    # plt.savefig('test.png')
-    # plt.show()
 
-    print('top left corner of image')
-    point=[5,5]
-    print([point[0], point[1], outputs[0, math.ceil(point[1] / 2), math.ceil(point[0] / 2), 0] * 1000])
+    viz_right = display_images(outputs_right.copy(), inputs_right.copy())
+    plt.figure(figsize=(10,5))
+    plt.imshow(viz_right)
 
-    print('bottom left corner of image')
-    point=[5,470]
-    print([point[0], point[1], outputs[0, math.ceil(point[1] / 2), math.ceil(point[0] / 2), 0] * 1000])
-    
-    print('farthest point in image')
-    point=[550,150]
-    print([point[0], point[1], outputs[0, math.ceil(point[1] / 2), math.ceil(point[0] / 2), 0] * 1000])
-
-    corner_points_with_depth=[]
     # Following code takes in corner points and displays a 3d plot with their densedepth estimates
     # for point in corner_points_from_file:
+    corner_points_with_depth=[]
     for c in corners:
-        print('all corners in bounding box with depth')
+        # print('all corners in bounding box with depth')
         for point in c:
-            # print(point)
-            corner_points_with_depth.append([point[0], point[1], outputs[0, math.ceil(point[1] / 2), math.ceil(point[0] / 2), 0] * 1000])
-        print(corner_points_with_depth)
-  
+            corner_points_with_depth.append([point[0], point[1], outputs[0, math.ceil(point[1] / 2), math.ceil(point[0] / 2), 0] * 10])
+        # print(corner_points_with_depth)
+
     plt.figure(2)
     ax = plt.axes(projection = '3d')
     for point in corner_points_with_depth:
@@ -220,7 +261,6 @@ if __name__=='__main__':
     ax.set_xlabel('u')
     ax.set_ylabel('z')
     ax.set_zlabel('v')
-    print('press q on both matplotlib windows to quit program')
 
     # NYUv2 - Kinect - RGB Intrinsic Parameters
     fx = 5.1885790117450188e+02
@@ -242,30 +282,93 @@ if __name__=='__main__':
                         [1]])
         world_point = np.matmul(np.linalg.inv(K), z*uv)
         ay.scatter3D(world_point[0], world_point[1], world_point[2])
-        print(world_point)
+        # print(world_point)
 
     ay.set_xlabel('x')
     ay.set_ylabel('y')
     ay.set_zlabel('z')
-    plt.show()
-    # for i,m in enumerate(masks):
-    #     temp=m
-    #     #plot the corners
-    #     res=corners[i]
-    #     temp[res[:, 1], res[:, 0]] = 255
-    #     # temp[res[:, 1]+1, res[:, 0]+1] = 255
-    #     # temp[res[:, 1], res[:, 0] + 1] = 255
-    #     # temp[res[:, 1] + 1, res[:, 0]] = 255
-    #     temp[res[:, 1]-1, res[:, 0]-1] = 255
-    #     temp[res[:, 1], res[:, 0] - 1] = 255
-    #     temp[res[:, 1] - 1, res[:, 0]] = 255
-    #     temp[res[:, 3], res[:, 2]] = 255
-    #     # temp[res[:, 3]+1, res[:, 2]+1] = 255
-    #     # temp[res[:, 3], res[:, 2] + 1] = 255
-    #     # temp[res[:, 3] + 1, res[:, 2]] = 255
-    #     temp[res[:, 3]-1, res[:, 2]-1] = 255
-    #     temp[res[:, 3], res[:, 2] - 1] = 255
-    #     temp[res[:, 3] - 1, res[:, 2]] = 255
-    #     cv2.imshow('',temp)
-    #     cv2.waitKey()
 
+    image_left = cv2.imread('images/00170_colors.png')
+    image_right = cv2.imread('00171_colors.png')
+
+    sift_left = cv2.xfeatures2d.SIFT_create()
+    sift_right = cv2.xfeatures2d.SIFT_create()
+
+    kp_left, des_left = sift_left.detectAndCompute(image_left, None)
+    kp_right, des_right = sift_right.detectAndCompute(image_right, None)
+    
+    kp_left = np.float32([i.pt for i in kp_left])
+    kp_right = np.float32([i.pt for i in kp_right])
+
+    match_instance = cv2.DescriptorMatcher_create("BruteForce")
+    All_Matches = match_instance.knnMatch(des_left, des_right, 2)
+
+    valid_matches = []
+    lowe_ratio = 0.8
+    i = 0
+
+    for val in All_Matches:
+        if len(val) == 2 and val[0].distance < val[1].distance * lowe_ratio:
+            valid_matches.append((val[0].trainIdx, val[0].queryIdx))
+
+    if len(valid_matches) > 4:
+    # construct the two sets of points
+        print('more than 4 valid matches found')
+        pointsA = np.float32([kp_left[i] for (_,i) in valid_matches])
+        pointsB = np.float32([kp_right[i] for (i,_) in valid_matches])
+    
+    sift_points_with_depth=[]
+    for point in pointsA:
+        sift_points_with_depth.append([point[0], point[1], outputs[0, math.ceil(point[1] / 2), math.ceil(point[0] / 2), 0] * 10])
+
+    sift_points_with_depth_right=[]
+    for point in pointsB:
+        sift_points_with_depth_right.append([point[0], point[1], outputs_right[0, math.ceil(point[1] / 2), math.ceil(point[0] / 2), 0] * 10])
+
+    sift_points_in_world=np.empty((0,3), float)
+    for point in sift_points_with_depth:
+        z = point[2]
+        uv = np.array([[point[0]],
+                        [point[1]],
+                        [1]])
+        sift_points_in_world = np.append(sift_points_in_world,np.transpose(np.matmul(np.linalg.inv(K), z*uv)),axis=0)
+
+
+    sift_points_in_world_right=np.empty((0,3), float)
+    for point in sift_points_with_depth_right:
+        z = point[2]
+        uv = np.array([[point[0]],
+                        [point[1]],
+                        [1]])
+        sift_points_in_world_right = np.append(sift_points_in_world_right,np.transpose(np.matmul(np.linalg.inv(K), z*uv)),axis=0)
+    
+    print('sift_points_in_world')
+    # print(sift_points_in_world)
+    print(sift_points_in_world.shape[:])
+
+    print('sift_points_in_world_right')
+    # print(sift_points_in_world_right)
+    print(sift_points_in_world_right.shape[:])
+
+    T, R, t = best_fit_transform(sift_points_in_world, sift_points_in_world_right)
+    print(T)
+    print(R)
+    print(t)
+
+    plt.figure(5)
+    a1 = plt.axes(projection = '3d')
+    # import pdb
+    # pdb.set_trace()
+    
+    for world_point in sift_points_in_world:
+        trans_p = np.dot(R, np.transpose(world_point)) + t
+        a1.scatter3D(trans_p[0], trans_p[1], trans_p[2], c='b', alpha=0.5)
+    
+    for world_point in sift_points_in_world_right:
+        a1.scatter3D(world_point[0], world_point[1], world_point[2], c='r', alpha=0.5)
+
+    a1.set_xlabel('x')
+    a1.set_ylabel('y')
+    a1.set_zlabel('z')
+    print('press q on all matplotlib windows to quit program')
+    plt.show()
