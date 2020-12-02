@@ -192,15 +192,15 @@ if __name__=='__main__':
 
     print('top left corner of image')
     point=[5,5]
-    print([point[0], point[1], outputs[0, math.ceil(point[0] / 2), math.ceil(point[1] / 2), 0] * 1000])
+    print([point[0], point[1], outputs[0, math.ceil(point[1] / 2), math.ceil(point[0] / 2), 0] * 1000])
 
     print('bottom left corner of image')
-    point=[470,5]
-    print([point[0], point[1], outputs[0, math.ceil(point[0] / 2), math.ceil(point[1] / 2), 0] * 1000])
+    point=[5,470]
+    print([point[0], point[1], outputs[0, math.ceil(point[1] / 2), math.ceil(point[0] / 2), 0] * 1000])
     
     print('farthest point in image')
-    point=[150,550]
-    print([point[0], point[1], outputs[0, math.ceil(point[0] / 2), math.ceil(point[1] / 2), 0] * 1000])
+    point=[550,150]
+    print([point[0], point[1], outputs[0, math.ceil(point[1] / 2), math.ceil(point[0] / 2), 0] * 1000])
 
     corner_points_with_depth=[]
     # Following code takes in corner points and displays a 3d plot with their densedepth estimates
@@ -209,7 +209,7 @@ if __name__=='__main__':
         print('all corners in bounding box with depth')
         for point in c:
             # print(point)
-            corner_points_with_depth.append([point[0], point[1], outputs[0, math.ceil(point[0] / 2), math.ceil(point[1] / 2), 0] * 1000])
+            corner_points_with_depth.append([point[0], point[1], outputs[0, math.ceil(point[1] / 2), math.ceil(point[0] / 2), 0] * 1000])
         print(corner_points_with_depth)
   
     plt.figure(2)
@@ -221,8 +221,33 @@ if __name__=='__main__':
     ax.set_ylabel('z')
     ax.set_zlabel('v')
     print('press q on both matplotlib windows to quit program')
-    plt.show()
 
+    # NYUv2 - Kinect - RGB Intrinsic Parameters
+    fx = 5.1885790117450188e+02
+    fy = 5.1946961112127485e+02
+    cx = 3.2558244941119034e+02
+    cy = 2.5373616633400465e+02
+
+    K = np.array([[fx,   0,  cx],
+         [0,    fy, cy],
+         [0,    0,   1]])
+
+    plt.figure(3)
+    ay = plt.axes(projection = '3d')
+
+    for point in corner_points_with_depth:
+        z = point[2]
+        uv = np.array([[point[0]],
+                        [point[1]],
+                        [1]])
+        world_point = np.matmul(np.linalg.inv(K), z*uv)
+        ay.scatter3D(world_point[0], world_point[1], world_point[2])
+        print(world_point)
+
+    ay.set_xlabel('x')
+    ay.set_ylabel('y')
+    ay.set_zlabel('z')
+    plt.show()
     # for i,m in enumerate(masks):
     #     temp=m
     #     #plot the corners
