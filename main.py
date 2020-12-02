@@ -281,18 +281,19 @@ if __name__=='__main__':
                         [point[1]],
                         [1]])
         world_point = np.matmul(np.linalg.inv(K), z*uv)
-        ay.scatter3D(world_point[0], world_point[1], world_point[2])
+        ay.scatter3D(world_point[0], world_point[2], world_point[1])
+        ay.invert_zaxis()
         # print(world_point)
 
     ay.set_xlabel('x')
-    ay.set_ylabel('y')
-    ay.set_zlabel('z')
+    ay.set_zlabel('y')
+    ay.set_ylabel('z')
 
     image_left = cv2.imread('images/00170_colors.png')
     image_right = cv2.imread('00171_colors.png')
 
-    sift_left = cv2.xfeatures2d.SIFT_create()
-    sift_right = cv2.xfeatures2d.SIFT_create()
+    sift_left = cv2.SIFT_create()
+    sift_right = cv2.SIFT_create()
 
     kp_left, des_left = sift_left.detectAndCompute(image_left, None)
     kp_right, des_right = sift_right.detectAndCompute(image_right, None)
@@ -357,18 +358,19 @@ if __name__=='__main__':
 
     plt.figure(5)
     a1 = plt.axes(projection = '3d')
+    a1.invert_zaxis()
     # import pdb
     # pdb.set_trace()
     
     for world_point in sift_points_in_world:
         trans_p = np.dot(R, np.transpose(world_point)) + t
-        a1.scatter3D(trans_p[0], trans_p[1], trans_p[2], c='b', alpha=0.5)
+        a1.scatter3D(trans_p[0], trans_p[2], trans_p[1], c='b', alpha=0.5)
     
     for world_point in sift_points_in_world_right:
-        a1.scatter3D(world_point[0], world_point[1], world_point[2], c='r', alpha=0.5)
+        a1.scatter3D(world_point[0], world_point[2], world_point[1], c='r', alpha=0.5)
 
     a1.set_xlabel('x')
-    a1.set_ylabel('y')
-    a1.set_zlabel('z')
+    a1.set_zlabel('y')
+    a1.set_ylabel('z')
     print('press q on all matplotlib windows to quit program')
     plt.show()
