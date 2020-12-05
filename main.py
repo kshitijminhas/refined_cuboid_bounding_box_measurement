@@ -109,6 +109,7 @@ def getCorners(mask, box):
     return res
 
 def best_fit_transform(A, B):
+    # source: https://github.com/ClayFlannigan/icp/blob/master/icp.py
     '''
     Calculates the least-squares best-fit transform that maps corresponding points A to B in m spatial dimensions
     Input:
@@ -292,8 +293,8 @@ if __name__=='__main__':
     image_left = cv2.imread('images/00170_colors.png')
     image_right = cv2.imread('00171_colors.png')
 
-    sift_left = cv2.SIFT_create()
-    sift_right = cv2.SIFT_create()
+    sift_left = cv2.xfeatures2d.SIFT_create()
+    sift_right = cv2.xfeatures2d.SIFT_create()
 
     kp_left, des_left = sift_left.detectAndCompute(image_left, None)
     kp_right, des_right = sift_right.detectAndCompute(image_right, None)
@@ -359,18 +360,73 @@ if __name__=='__main__':
     plt.figure(5)
     a1 = plt.axes(projection = '3d')
     a1.invert_zaxis()
+
+    plt.figure(6)
+    a2 = plt.axes(projection = '3d')
+    a2.invert_zaxis()
+
+    plt.figure(7)
+    a3 = plt.axes(projection = '3d')
+    a3.invert_zaxis()
     # import pdb
     # pdb.set_trace()
     
     for world_point in sift_points_in_world:
+        a1.scatter3D(world_point[0], world_point[2], world_point[1], c='b', alpha=0.5)
         trans_p = np.dot(R, np.transpose(world_point)) + t
-        a1.scatter3D(trans_p[0], trans_p[2], trans_p[1], c='b', alpha=0.5)
+        a3.scatter3D(trans_p[0], trans_p[2], trans_p[1], c='b', alpha=0.5)
     
     for world_point in sift_points_in_world_right:
-        a1.scatter3D(world_point[0], world_point[2], world_point[1], c='r', alpha=0.5)
+        a2.scatter3D(world_point[0], world_point[2], world_point[1], c='r', alpha=0.5)
+        a3.scatter3D(world_point[0], world_point[2], world_point[1], c='r', alpha=0.5)
 
     a1.set_xlabel('x')
     a1.set_zlabel('y')
     a1.set_ylabel('z')
+
+    a2.set_xlabel('x')
+    a2.set_zlabel('y')
+    a2.set_ylabel('z')
+
+    a3.set_xlabel('x')
+    a3.set_zlabel('y')
+    a3.set_ylabel('z')
+
+    all_points_with_depth=[]
+    all_points_with_depth_right=[]
+    for u in range(0, 639, 25):
+        for v in range(0, 479, 25):
+            all_points_with_depth.append([u, v, outputs[0, math.ceil(v / 2), math.ceil(u/ 2), 0] * 10])
+            all_points_with_depth_right.append([u, v, outputs_right[0, math.ceil(v / 2), math.ceil(u/ 2), 0] * 10])
+
+    all_points_in_world=np.empty((0,3), float)
+    for point in all_points_with_depth:
+        z = point[2]
+        uv = np.array([[point[0]],
+                        [point[1]],
+                        [1]])
+        all_points_in_world = np.append(all_points_in_world, np.transpose(np.matmul(np.linalg.inv(K), z*uv)),axis=0)
+
+
+    all_points_in_world_right=np.empty((0,3), float)
+    for point in all_points_with_depth_right:
+        z = point[2]
+        uv = np.array([[point[0]],
+                        [point[1]],
+                        [1]])
+        all_points_in_world_right = np.append(all_points_in_world_right, np.transpose(np.matmul(np.linalg.inv(K), z*uv)),axis=0)
+    
+    # plt.figure(8)
+    # a4 = plt.axes(projection = '3d')
+    # a4.invert_zaxis()
+    # # for world_point in all_points_in_world:
+    # #     trans_p = np.dot(R, np.transpose(world_point)) + t
+    # #     a3.scatter3D(world_point[0], world_point[2], world_point[1], c='r', alpha=0.5)
+    # for world_point in all_points_in_world_right:
+    #     a4.scatter3D(world_point[0], world_point[2], world_point[1], c='b', alpha=0.5)
+
+    # a4.set_xlabel('x')
+    # a4.set_zlabel('y')
+    # a4.set_ylabel('z')
     print('press q on all matplotlib windows to quit program')
     plt.show()
